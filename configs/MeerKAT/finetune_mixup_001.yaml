@@ -1,0 +1,109 @@
+# @package _group_
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d_%H-%M-%S}_ft_few_0-1_1-2
+
+common:
+  fp16: true
+  log_format: json
+  log_interval: 11  # this is in steps, not epochs ... log every three epochs.
+  tensorboard_logdir: tb
+  all_gather_list_size: 6500000
+
+checkpoint:
+  save_interval: 119  # that is every 430 updates
+  keep_last_epochs: 10  # keep roughly all seven finetuning and the last three freeze update checkpoints
+  best_checkpoint_metric: metrics/finetune/f1
+
+task:
+  _name: audio_ccas
+  data: /path/to/manifest_files
+  max_sample_size: 320000
+  min_sample_size: 1000
+  min_label_size: 3032  # Empty label files have Bytesize 1780, so to exclude them set this to 1780
+  normalize: true
+  sample_rate: 8000
+  with_labels: true
+  unique_labels: "['beep', 'synch', 'sn', 'cc', 'ld', 'oth', 'mo', 'al', 'soc', 'agg', 'eating', 'focal']"
+  conv_feature_layers: '[(127, 63, 1)] +[(512, 10, 5)] + [(512, 3, 2)] * 3 + [(512, 3, 1)] + [(512, 2, 1)] * 2'
+  verbose_tensorboard_logging: true
+
+dataset:
+  num_workers: 20
+  # original value: 1920 seconds
+  # max_tokens / sample_rate * distributed_world_size * update_freq is the batch size in seconds
+  max_tokens: 426_667
+  skip_invalid_size_inputs_valid_test: true
+  validate_interval: 1000  # validate every N epochs, setting to 1000 or above effectively deactivates that
+  validate_interval_updates: 250  # validate every m updates after validate_after_updates,
+  # so setting this to 2000 validates every 2000 updates after validate_after_updates.
+  validate_after_updates: 10000  # dont validate until reaching this many updates, but then do a
+  # validate regardless of validate_interval_updates
+  train_subset: train_0_few_0 # we have 5770s in train_0_few_0 and a batch size of 1600s
+  valid_subset: valid_0
+
+distributed_training:
+  distributed_world_size: 4  # num of gpus -> we have 4
+  ddp_backend: legacy_ddp
+
+criterion:
+  _name: finetunecriterion
+  label_smoothing: 0.09  # 1 / num_classes as a rule of thumb
+  report_accuracy: true
+  segmentation_metrics: true
+  use_focal_loss: true  # this overrides label smoothing and uses the focal loss instead
+  metric_threshold: .175  # The minimum likelihood which is deemed a prediction
+  method: "avg"  # Parameters for the segmentation detection
+  sigma_s: 0.1
+  maxfilt_s: 0.1
+  max_duration_s: 0.5
+  lowP: 0.125
+
+optimization:
+  update_freq: [ 9 ]
+  max_update: 13000  # after the 10000 freeze updates we do 3000 normal finetuning steps -> 830.5 epochs
+  lr: [ 0.0001 ]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9,0.98)
+  adam_eps: 1e-08
+
+lr_scheduler:
+  _name: cosine  # replaced the tri stage scheduler with a cosine one
+  warmup_updates: 2000
+  warmup_init_lr: 1e-10
+  min_lr: 5e-06
+
+model:
+  _name: wav2vec_ccas_finetune
+  w2v_path: ???
+  # For the first 10k updates only the output classifier is trained,
+  # after which the Transformer is also updated.
+  # The feature encoder is not trained during fine-tuning.
+  freeze_finetune_updates: 10000
+  feature_grad_mult: 0.0
+  apply_mask: true
+  average_top_k_layers: 16 # Layers in the middle perform best, see arXiv:2105.11084 [cs.CL]
+  # Regularization terms
+  mask_prob: 1.1  # Probability - the R term in the paper - for a token being masked (Default is 0.65)
+  # The masking length if a token was chosen.
+  mask_length: 2
+  # to get the prob from the paper you have to:
+  # mask_channel_prob * num_channels (1024) / mask_channel_length / batch_size
+  mask_channel_prob: 0.5
+  mask_channel_length: 64
+  dropout: 0.1
+  dropout_input: 0.0
+  activation_dropout: 0.1
+  attention_dropout: 0.2
+  final_dropout: 0.0
+  layerdrop: 0.1
+  drop_path: 0.0
+  target_mixup: true  # Should we mixup the targets as well
+  source_mixup: 0.5  # The strength of the mixing (Uniformly sampled between this and 1.)
+  mixup_prob: 1.0  # How much of the source and targets should be mixed up (1.0 == 100%)
+  same_mixup: true  # Should we use the same strength for the full batch or use a random strength for every sample
+  mixing_window_length: 0.05  # The window length for the to-be-mixed windows in BC learning
+  gain_mode: "A_weighting"  # The mode with which the mixing gain is calculated, see BC learning paper
+  load_pretrain_weights: false  # should we attempt to load the linear eval projection layer weights from pretrain
