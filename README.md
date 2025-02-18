@@ -176,17 +176,52 @@ with torch.inference_mode():
 ```
 We are working on providing model weights that can be used with the [HuggingFace Transformers module](https://huggingface.co/docs/transformers/en/index) and will update this repo once this becomes available.
 
+### Prepare your own data
+The way you have to prepare your files follows the style implemented by the fairseq
+framework ([See here for more information](https://github.com/facebookresearch/fairseq/tree/main/examples/wav2vec#prepare-training-data-manifest))
+First, you have to prepare the files. A recommended way is to chunk your audio files into 10s segments and place them in a
+appropriate folder structure. We have a script for that. You can use the "prepare_arb_data_for_audio_pretraining.py" script in the
+scripts folder. Optionally, you also can provide a Pandas pickle file holding your ground truth information.
+This pickle file should be a Pandas DataFrame containing five columns: 'Name', 'AudioFile', 'StartRelative', 'EndRelative', 'Focal'. 
+* 'Name' is the name of the class. 'Song One', for example. 
+* 'AudioFile' is the name of the original Audiofile in which this event happens. 
+* 'StartRelative' is a timedelta object indicating the start time relative to the file start. 
+* 'EndRelative' is a timedelta object indicating the end time relative to the file start. 
+* 'Focal' is a boolean Flag indicating if the event is focal or not .
+
+The script will then take care of the rest. After you did this, you have to create the "manifest" files. Those are tab-separated
+text files holding path information for every sample that you want to use for pretraining or finetuning. For each training split (pretraining, finetune, evaluation) there
+is a separate manifest file. We have a script for that.
+
+You can use "animal2vec_manifest.py" to create those files. The script will create a pretrain and five cross-validation train/eval splits. Those
+manifest files will be placed in a manifest folder. Such that the final folder structure of your dataset looks like: wav, manifest, lbl.
+
+
 ### Pretrain with your own data
-Coming very soon
+Once you have prepared your files. You can pretrain animal2vec using the following command:
+
+```python animal2vec_train.py --config-dir=./configs/MeerKAT/ --config-name a2v_large_pretrain_best```
+
+**For this to work you need to modify the config file. At least with the correct paths to your manifest files**
+The provided config file is commented, to help you get started with all the parameters. In addition you can
+also look for information on the fairseq repository. 
 
 ### Finetune the MeerKAT-pretrained animal2vec model with your own data
-Coming very soon
+For finetuning you can do this:
+
+```python animal2vec_train.py model.w2v_path=/path/to/checkpoint_file --config-dir=./configs/MeerKAT/ --config-name finetune_mixup_100```
+
+Here the w2v_path flag needs to point to *.pt file, created during an animal2vec pretrain. 
+We provide the model weights for a large animal2vec model pretrained the MeerKAT dataset [here](https://doi.org/10.17617/3.ETPUKU). 
 
 ### Use the finetuned animal2vec model to do inference on your own data
-Coming very soon
+If you want to have predictions for you own audio files using either our finetuned animal2vec model ([weights here](https://doi.org/10.17617/3.ETPUKU)), or 
+your own one. You can do this:
 
-### Things to consider when using your own data
-Coming very soon
+```python animal2vec_inference.py --path=/path/to/audio_data --out-path=/path/to/desired/output_folder --model-path=/path/to/checkpoint_file```
+
+Please have a look at our inference script and double check all parameters (help texts are provided in there). The default parameters are optimized for the MeerKAT dataset.
+
 
 ### References
 
