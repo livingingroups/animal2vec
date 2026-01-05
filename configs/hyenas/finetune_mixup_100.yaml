@@ -22,7 +22,7 @@ task:
   min_sample_size: 1000
   min_label_size: 2936  # Empty label files have Bytesize 2936, so to exclude them set this to 2936
   normalize: true
-  unique_labels: "['groan', 'oth', 'whoop', 'alarm_rumble', 'squitter', 'squeal', 'feeding', 'giggle', 'growl', 'focal']"
+  unique_labels: "['groan', 'oth', 'whoop', 'alarm_rumble', 'squitter', 'squeal', 'feeding', 'giggle', 'growl', 'snore', 'focal']"
   with_labels: true
   conv_feature_layers: '[(127, 63, 1)] +[(512, 10, 5)] + [(512, 3, 4)] + [(512, 3, 3)] + [(512, 3, 2)] + [(512, 3, 1)] + [(512, 2, 1)] * 2'
   sample_rate: 24000

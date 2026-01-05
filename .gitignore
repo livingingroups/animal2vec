@@ -127,8 +127,7 @@ data-bin/
 scripts/libPeak/_peak_detection.cpp
 
 # VSCODE
-.vscode/ftp-sync.json
-.vscode/settings.json
+.vscode/
 
 # Experimental Folder
 experimental/*
@@ -144,3 +143,4 @@ outputs
 # Other
 results
 logs
+data/

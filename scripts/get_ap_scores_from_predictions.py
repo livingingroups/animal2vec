@@ -33,7 +33,11 @@ def remove_empty_rows(
         Tuple[NDArray, NDArray]: Filtered predictions and targets with empty rows removed.
 
     """
-    non_empty_indices = np.where(targets.sum(axis=1) != 0)[0]
+    empty_indices_targets = np.where(targets.sum(axis=1) == 0)[0]
+    empty_indices_pred = np.where(predictions.sum(axis=1) == 0)[0]
+    empty_indices = np.intersect1d(empty_indices_pred, empty_indices_targets)
+    all_indices = np.arange(len(targets))
+    non_empty_indices = np.setdiff1d(all_indices, empty_indices)
     return predictions[non_empty_indices], targets[non_empty_indices]
 
 
